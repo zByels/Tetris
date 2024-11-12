@@ -67,6 +67,25 @@ class Grade:
                 if self.grade[i][j]:
                     pygame.draw.rect(tela, Cores['branco'], (j * TAMANHO_CELULA, i * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
 
+    def verificar_colisao(self, tetromino):
+        """Verifica se o tetromino colide com a grade."""
+        for i, linha in enumerate(tetromino.forma):
+            for j, valor in enumerate(linha):
+                if valor:
+                    if (tetromino.y + i >= LINHAS) or (tetromino.x + j < 0) or (tetromino.x + j >= COLUNAS) or (self.grade[tetromino.y + i][tetromino.x + j]):
+                        return True
+        return False
+
+    def remover_linhas_completas(self):
+        """Remove linhas completas da grade."""
+        linhas_removidas = 0
+        for i in range(LINHAS - 1, -1, -1):
+            if all(self.grade[i]):
+                del self.grade[i]
+                self.grade.insert(0, [0 for _ in range(COLUNAS)])
+                linhas_removidas += 1
+        return linhas_removidas
+
 class Jogo:
     """Classe principal do jogo Tetris."""
     def __init__(self):
@@ -84,6 +103,32 @@ class Jogo:
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
                     self.jogando = False
+                if evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_LEFT:
+                        self.tetromino.x -= 1
+                        if self.grade.verificar_colisao(self.tetromino):
+                            self.tetromino.x += 1
+                    if evento.key == pygame.K_RIGHT:
+                        self.tetromino.x += 1
+                        if self.grade.verificar_colisao(self.tetromino):
+                            self.tetromino.x -= 1
+                    if evento.key == pygame.K_DOWN:
+                        self.tetromino.y += 1
+                        if self.grade.verificar_colisao(self.tetromino):
+                            self.tetromino.y -= 1
+                    if evento.key == pygame.K_UP:
+                        self.tetromino.rotacionar()
+                        if self.grade.verificar_colisao(self.tetromino):
+                            self.tetromino.rotacionar()  # Rotaciona de volta se colidir
+
+            self.tetromino.y += 1
+            if self.grade.verificar_colisao(self.tetromino):
+                self.tetromino.y -= 1
+                self.grade.adicionar_tetromino(self.tetromino)
+                self.grade.remover_linhas_completas()
+                self.tetromino = Tetromino()
+                if self.grade.verificar_colisao(self.tetromino):
+                    self.jogando = False  # Fim do jogo se o novo tetromino colidir
 
             self.tela.fill(Cores['preto'])
             self.grade.desenhar(self.tela)
@@ -92,4 +137,12 @@ class Jogo:
             for i, linha in enumerate(self.tetromino.forma):
                 for j, valor in enumerate(linha):
                     if valor:
-                        pygame.draw.rect(self.tela, Cores['branco'], ((self.tetromino.x + j) * TAMANHO_CELULA, (self.tetromino.y + i) * TAM
+                        pygame.draw.rect(self.tela, Cores['branco'], ((self.tetromino.x + j) * TAMANHO_CELULA, (self.tetromino.y + i) * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
+
+            pygame.display.flip()
+            self.clock.tick(10)  # Controla a velocidade do jogo
+
+if __name__ == "__main__":
+    jogo = Jogo()
+    jogo.rodar()
+    pygame.quit()
