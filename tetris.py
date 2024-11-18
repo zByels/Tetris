@@ -140,7 +140,7 @@ class Jogo:
                         pygame.draw.rect(self.tela, Cores['branco'], ((self.tetromino.x + j) * TAMANHO_CELULA, (self.tetromino.y + i) * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
 
             pygame.display.flip()
-            self.clock.tick(10)  # Controla a velocidade do jogo
+            self.clock.tick(20)  # Controla a velocidade do jogo
 
 if __name__ == "__main__":
     jogo = Jogo()
