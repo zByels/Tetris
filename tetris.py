@@ -39,8 +39,10 @@ class Forma:
         self.y = 0
 
     def rotacionar(self):
-        """Rotaciona a forma 90 graus."""
-        self.forma = [list(row) for row in zip(*self.forma[::-1])]
+        """Rotaciona a forma 90 graus no sentido anti-horário."""
+        # Transpõe a matriz e inverte as colunas
+        self.forma = [list(row) for row in zip(*self.forma)]
+        self.forma = [row[::-1] for row in self.forma]
 
 class Tetromino(Forma):
     """Classe que representa um tetromino específico."""
@@ -140,7 +142,7 @@ class Jogo:
                         pygame.draw.rect(self.tela, Cores['branco'], ((self.tetromino.x + j) * TAMANHO_CELULA, (self.tetromino.y + i) * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
 
             pygame.display.flip()
-            self.clock.tick(20)  # Controla a velocidade do jogo
+            self.clock.tick(10)  # Controla a velocidade do jogo
 
 if __name__ == "__main__":
     jogo = Jogo()
