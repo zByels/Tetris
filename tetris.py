@@ -112,14 +112,39 @@ class Jogo:
         self.clock = pygame.time.Clock()
         self.grade = Grade()
         self.tetromino = Tetromino()
-        self.jogando = True
+        self.jogando = False  # Jogo começa pausado até clicar no botão play
+
+    def mostrar_tela_inicio(self):
+        """Exibe a tela de início com apenas o botão Play."""
+        font = pygame.font.SysFont(None, 55)
+        play_button_rect = pygame.Rect(LARGURA_JOGO // 2 - 50, ALTURA_JOGO // 2, 100, 50)
+
+        while not self.jogando:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if evento.type == pygame.MOUSEBUTTONDOWN:
+                    if play_button_rect.collidepoint(evento.pos):
+                        self.jogando = True
+
+            self.tela.fill(Cores['F'].get())  # Fundo preto
+            pygame.draw.rect(self.tela, Cores['S'].get(), play_button_rect)  # Botão Play verde
+            play_text = font.render("Play", True, (0, 0, 0))  # Texto "Play" em preto
+            self.tela.blit(play_text, play_text.get_rect(center=play_button_rect.center))
+            pygame.display.flip()
+            self.clock.tick(30)
 
     def rodar(self):
         """Loop principal do jogo."""
-        while self.jogando:
+        while True:
+            if not self.jogando:
+                self.mostrar_tela_inicio()
+
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
-                    self.jogando = False
+                    pygame.quit()
+                    exit()
 
                 # Verifica se a tecla Space foi pressionada (não se está sendo mantida pressionada)
                 if evento.type == pygame.KEYDOWN:
@@ -155,7 +180,9 @@ class Jogo:
                 self.grade.remover_linhas_completas()
                 self.tetromino = Tetromino()
                 if self.grade.verificar_colisao(self.tetromino):
-                    self.jogando = False
+                    pygame.time.delay(500)  # Pausa um pouco antes de encerrar o jogo
+                    pygame.quit()
+                    exit()  # Fecha o jogo quando o jogador perde
 
             self.tela.fill(Cores['F'].get())
             self.grade.desenhar(self.tela)
