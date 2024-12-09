@@ -1,0 +1,303 @@
+import pygame
+import random
+import json
+import os
+
+# Definindo as constantes de configuração do jogo
+LARGURA_JOGO = 300
+ALTURA_JOGO = 600
+TAMANHO_CELULA = 30
+LINHAS = ALTURA_JOGO // TAMANHO_CELULA
+COLUNAS = LARGURA_JOGO // TAMANHO_CELULA
+
+# Classe que representa uma cor em formato RGB
+class Cor:
+    def __init__(self, r, g, b):
+        self.r = r
+        self.g = g
+        self.b = b
+
+    def get(self):
+        return (self.r, self.g, self.b)
+
+# Cores do jogo
+Cores = {
+    'I': Cor(0, 255, 255),
+    'T': Cor(128, 0, 128),
+    'O': Cor(255, 255, 255),
+    'S': Cor(0, 255, 0),
+    'Z': Cor(255, 0, 0),
+    'L': Cor(255, 165, 0),
+    'J': Cor(0, 0, 255),
+    'F': Cor(0, 0, 0)
+}
+
+# Formas dos Tetrominos
+formas = [
+    [[1, 1, 1, 1]],
+    [[1, 1, 1], [0, 1, 0]],
+    [[1, 1], [1, 1]],
+    [[0, 1, 1], [1, 1, 0]],
+    [[1, 1, 0], [0, 1, 1]],
+    [[1, 1, 1], [1, 0, 0]],
+    [[1, 1, 1], [0, 0, 1]]
+]
+
+# Classe para gerenciar o recorde do jogador
+class Recorde:
+    def __init__(self, arquivo='recorde.json'):
+        self.arquivo = arquivo
+        self.recordes = []
+        self.carregar_recordes()
+
+    def carregar_recordes(self):
+        if os.path.exists(self.arquivo):
+            with open(self.arquivo, 'r') as f:
+                self.recordes = json.load(f).get('recordes', [])
+
+    def salvar_recordes(self):
+        with open(self.arquivo, 'w') as f:
+            json.dump({"recordes": self.recordes}, f, indent=4)
+
+    def atualizar_recorde(self, nome, pontuacao):
+        self.recordes.append({"nome": nome, "pontuacao": pontuacao})
+        self.recordes = sorted(self.recordes, key=lambda x: x['pontuacao'], reverse=True)[:5]  # Mantém apenas os 5 melhores
+        self.salvar_recordes()
+
+# Classes restantes do jogo
+class Forma:
+    def __init__(self, forma, cor):
+        self.forma = forma
+        self.cor = cor
+        self.x = COLUNAS // 2 - len(self.forma[0]) // 2
+        self.y = 0
+
+    def rotacionar(self):
+        self.forma = [list(row) for row in zip(*self.forma)]
+        self.forma = [row[::-1] for row in self.forma]
+
+class Tetromino(Forma):
+    def __init__(self):
+        forma_index = random.randint(0, len(formas) - 1)
+        forma = formas[forma_index]
+        cor = list(Cores.values())[forma_index]
+        super().__init__(forma, cor)
+
+class Grade:
+    def __init__(self):
+        self.grade = [[0 for _ in range(COLUNAS)] for _ in range(LINHAS)]
+        self.pontos = 0
+
+    def adicionar_tetromino(self, tetromino):
+        for i, linha in enumerate(tetromino.forma):
+            for j, valor in enumerate(linha):
+                if valor:
+                    self.grade[tetromino.y + i][tetromino.x + j] = tetromino.cor
+
+    def desenhar(self, tela):
+        for i in range(LINHAS):
+            for j in range(COLUNAS):
+                if self.grade[i][j]:
+                    pygame.draw.rect(tela, self.grade[i][j].get(),
+                                     (j * TAMANHO_CELULA, i * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
+
+    def verificar_colisao(self, tetromino):
+        for i, linha in enumerate(tetromino.forma):
+            for j, valor in enumerate(linha):
+                if valor:
+                    if (tetromino.y + i >= LINHAS) or (tetromino.x + j < 0) or (tetromino.x + j >= COLUNAS) or (self.grade[tetromino.y + i][tetromino.x + j]):
+                        return True
+        return False
+
+    def remover_linhas_completas(self):
+        linhas_removidas = 0
+        for i in range(LINHAS - 1, -1, -1):
+            if all(self.grade[i]):
+                del self.grade[i]
+                self.grade.insert(0, [0 for _ in range(COLUNAS)])
+                linhas_removidas += 1
+        return linhas_removidas
+
+class Jogo:
+    def __init__(self):
+        pygame.init()
+        self.tela = pygame.display.set_mode((LARGURA_JOGO, ALTURA_JOGO))
+        pygame.display.set_caption("Tetris")
+        self.clock = pygame.time.Clock()
+        self.grade = Grade()
+        self.tetromino = Tetromino()
+        self.jogando = False
+        self.pausado = False
+        self.ponto = 0
+        self.recorde = Recorde()
+        self.nome_jogador = ""
+        self.linhas_removidas = 0
+        self.velocidade = 5  # Velocidade inicial
+
+    def mostrar_tela_inicio(self):
+        font = pygame.font.SysFont(None, 55)
+        play_button_rect = pygame.Rect(LARGURA_JOGO // 2 - 50, ALTURA_JOGO // 2, 100, 50)
+
+        while not self.jogando:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if evento.type == pygame.MOUSEBUTTONDOWN:
+                    if play_button_rect.collidepoint(evento.pos):
+                        self.jogando = True
+
+            self.tela.fill(Cores['F'].get())
+            pygame.draw.rect(self.tela, Cores['S'].get(), play_button_rect)
+            play_text = font.render("Play", True, (0, 0, 0))
+            self.tela.blit(play_text, play_text.get_rect(center=play_button_rect.center))
+            pygame.display.flip()
+            self.clock.tick(30)
+
+    def mostrar_tela_pausa(self):
+        font = pygame.font.SysFont(None, 55)
+        pause_text = font.render("PAUSADO", True, (255, 0, 0))
+
+        self.tela.fill(Cores['F'].get())
+        self.tela.blit(pause_text, pause_text.get_rect(center=(LARGURA_JOGO // 2, ALTURA_JOGO // 2)))
+        pygame.display.flip()
+
+    def solicitar_nome_jogador(self):
+        font = pygame.font.SysFont(None, 55)
+        input_box = pygame.Rect(LARGURA_JOGO // 2 - 100, ALTURA_JOGO // 2, 200, 50)
+        color_inactive = pygame.Color('lightskyblue3')
+        color_active = pygame.Color('dodgerblue2')
+        color = color_inactive
+        active = False
+        texto = ''
+
+        while True:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if evento.type == pygame.MOUSEBUTTONDOWN:
+                    if input_box.collidepoint(evento.pos):
+                        active = not active
+                    else:
+                        active = False
+                    color = color_active if active else color_inactive
+                if evento.type == pygame.KEYDOWN:
+                    if active:
+                        if evento.key == pygame.K_RETURN:
+                            return texto
+                        elif evento.key == pygame.K_BACKSPACE:
+                            texto = texto[:-1]
+                        else:
+                            texto += evento.unicode
+
+            self.tela.fill(Cores['F'].get())
+            txt_surface = font.render(texto, True, color)
+            width = max(200, txt_surface.get_width()+10)
+            input_box.w = width
+            self.tela.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
+            pygame.draw.rect(self.tela, color, input_box, 2)
+            pygame.display.flip()
+            self.clock.tick(30)
+
+    def mostrar_recordes(self):
+        font = pygame.font.SysFont(None, 36)
+        self.tela.fill(Cores['F'].get())
+        
+        title_text = font.render("Recordes", True, (0, 0, 0))
+        self.tela.blit(title_text, (LARGURA_JOGO // 2 - title_text.get_width() // 2, 20))
+        
+        for i, recorde in enumerate(self.recorde.recordes):
+            recorde_text = font.render(f"{i + 1}. {recorde['nome']} - {recorde['pontuacao']}", True, (0, 0, 0))
+            self.tela.blit(recorde_text, (50, 60 + i * 30))
+
+        pontuacao_final_text = font.render(f"Sua Pontuação: {self.ponto}", True, (255, 0, 0))
+        self.tela.blit(pontuacao_final_text, (LARGURA_JOGO // 2 - pontuacao_final_text.get_width() // 2, 60 + len(self.recorde.recordes) * 30 + 20))
+
+        pygame.display.flip()
+        pygame.time.delay(5000)  # Espera 5 segundos antes de reiniciar
+
+    def rodar(self):
+        while True:
+            if not self.jogando:
+                self.mostrar_tela_inicio()
+
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+
+                if evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_SPACE and not self.pausado:
+                        while not self.grade.verificar_colisao(self.tetromino):
+                            self.tetromino.y += 1
+                        self.tetromino.y -= 1
+                    if evento.key == pygame.K_p:
+                        self.pausado = not self.pausado
+
+            if self.pausado:
+                self.mostrar_tela_pausa()
+                continue
+
+            teclas = pygame.key.get_pressed()
+            if teclas[pygame.K_LEFT]:
+                self.tetromino.x -= 1
+                if self.grade.verificar_colisao(self.tetromino):
+                    self.tetromino.x += 1
+            if teclas[pygame.K_RIGHT]:
+                self.tetromino.x += 1
+                if self.grade.verificar_colisao(self.tetromino):
+                    self.tetromino.x -= 1
+            if teclas[pygame.K_DOWN]:
+                self.tetromino.y += 1
+                if self.grade.verificar_colisao(self.tetromino):
+                    self.tetromino.y -= 1
+            if teclas[pygame.K_UP]:
+                self.tetromino.rotacionar()
+                if self.grade.verificar_colisao(self.tetromino):
+                    self.tetromino.rotacionar()
+
+            # Queda automática do tetromino
+            self.tetromino.y += 1
+            if self.grade.verificar_colisao(self.tetromino):
+                self.tetromino.y -= 1
+                self.grade.adicionar_tetromino(self.tetromino)
+                linhas_removidas = self.grade.remover_linhas_completas()
+                self.ponto += 2 * linhas_removidas
+                self.linhas_removidas += linhas_removidas
+                
+                # Aumenta a velocidade a cada 3 linhas removidas
+                if self.linhas_removidas >= 3:
+                    self.velocidade += 1
+                    self.linhas_removidas = 0  # Reseta o contador
+
+                self.tetromino = Tetromino()
+                if self.grade.verificar_colisao(self.tetromino):
+                    pygame.time.delay(500)
+                    self.nome_jogador = self.solicitar_nome_jogador()
+                    self.recorde.atualizar_recorde(self.nome_jogador, self.ponto)
+                    self.mostrar_recordes()
+                    pygame.quit()
+                    exit()
+
+            self.tela.fill(Cores['F'].get())
+            self.grade.desenhar(self.tela)
+
+            for i, linha in enumerate(self.tetromino.forma):
+                for j, valor in enumerate(linha):
+                    if valor:
+                        pygame.draw.rect(self.tela, self.tetromino.cor.get(),
+                                         ((self.tetromino.x + j) * TAMANHO_CELULA, (self.tetromino.y + i) * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
+
+            font = pygame.font.SysFont(None, 36)
+            pontos_texto = font.render(f'Pontos: {self.ponto}', True, (255, 255, 255))
+            self.tela.blit(pontos_texto, (LARGURA_JOGO - 150, 20))
+
+            pygame.display.flip()
+            self.clock.tick(10 + self.velocidade)  # Aumenta a taxa de atualização com base na velocidade
+
+# Inicializa e executa o jogo
+if __name__ == "__main__":
+    jogo = Jogo()
+    jogo.rodar()
+    pygame.quit()
