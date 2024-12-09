@@ -1,125 +1,138 @@
 import pygame
 import random
+import json
+import os
 
 # Definindo as constantes de configuração do jogo
-LARGURA_JOGO = 300  # Largura da tela do jogo
-ALTURA_JOGO = 600   # Altura da tela do jogo
-TAMANHO_CELULA = 30  # Tamanho de cada célula (ou bloco) do tetromino
-LINHAS = ALTURA_JOGO // TAMANHO_CELULA  # Número de linhas da grade
-COLUNAS = LARGURA_JOGO // TAMANHO_CELULA  # Número de colunas da grade
+LARGURA_JOGO = 300
+ALTURA_JOGO = 600
+TAMANHO_CELULA = 30
+LINHAS = ALTURA_JOGO // TAMANHO_CELULA
+COLUNAS = LARGURA_JOGO // TAMANHO_CELULA
 
-# Definindo as cores utilizando uma classe Cor
+# Classe que representa uma cor em formato RGB
 class Cor:
-    """Classe que representa uma cor em formato RGB."""
     def __init__(self, r, g, b):
         self.r = r
         self.g = g
         self.b = b
 
     def get(self):
-        """Retorna a cor em formato RGB."""
         return (self.r, self.g, self.b)
 
-# Definindo as cores para cada tetromino
+# Cores do jogo
 Cores = {
-    'I': Cor(0, 255, 255),  # Ciano
-    'T': Cor(128, 0, 128),  # Roxo
-    'O': Cor(255, 255, 255),  # Branco
-    'S': Cor(0, 255, 0),    # Verde
-    'Z': Cor(255, 0, 0),    # Vermelho
-    'L': Cor(255, 165, 0),  # Laranja
-    'J': Cor(0, 0, 255),    # Azul
-    'F': Cor(0,0,0)         # Preta (fundo)
+    'I': Cor(0, 255, 255),
+    'T': Cor(128, 0, 128),
+    'O': Cor(255, 255, 255),
+    'S': Cor(0, 255, 0),
+    'Z': Cor(255, 0, 0),
+    'L': Cor(255, 165, 0),
+    'J': Cor(0, 0, 255),
+    'F': Cor(0, 0, 0)
 }
 
-# Definindo as formas dos tetrominós (as peças do jogo)
+# Formas dos Tetrominos
 formas = [
-    [[1, 1, 1, 1]],  # Forma I
-    [[1, 1, 1], [0, 1, 0]],  # Forma T
-    [[1, 1], [1, 1]],  # Forma O
-    [[0, 1, 1], [1, 1, 0]],  # Forma S
-    [[1, 1, 0], [0, 1, 1]],  # Forma Z
-    [[1, 1, 1], [1, 0, 0]],  # Forma L
-    [[1, 1, 1], [0, 0, 1]]   # Forma J
+    [[1, 1, 1, 1]],
+    [[1, 1, 1], [0, 1, 0]],
+    [[1, 1], [1, 1]],
+    [[0, 1, 1], [1, 1, 0]],
+    [[1, 1, 0], [0, 1, 1]],
+    [[1, 1, 1], [1, 0, 0]],
+    [[1, 1, 1], [0, 0, 1]]
 ]
 
+# Classe para gerenciar o recorde do jogador
+class Recorde:
+    def __init__(self, arquivo='recorde.json'):
+        self.arquivo = arquivo
+        self.recorde = {"nome": "Jogador", "pontuacao": 0}
+        self.carregar_recorde()
+
+    def carregar_recorde(self):
+        if os.path.exists(self.arquivo):
+            with open(self.arquivo, 'r') as f:
+                self.recorde = json.load(f)
+
+    def salvar_recorde(self):
+        with open(self.arquivo, 'w') as f:
+            json.dump(self.recorde, f, indent=4)
+
+    def atualizar_recorde(self, nome, pontuacao):
+        if pontuacao > self.recorde["pontuacao"]:
+            self.recorde = {"nome": nome, "pontuacao": pontuacao}
+            self.salvar_recorde()
+
+# Classes restantes do jogo
 class Forma:
-    """Classe base para as formas dos tetrominós."""
     def __init__(self, forma, cor):
-        self.forma = forma  # A forma do tetromino é uma lista de listas representando os blocos
-        self.cor = cor  # Cor associada à peça
-        self.x = COLUNAS // 2 - len(self.forma[0]) // 2  # Posição inicial do tetromino em X
-        self.y = 0  # O tetromino começa no topo da tela (posição Y inicial)
+        self.forma = forma
+        self.cor = cor
+        self.x = COLUNAS // 2 - len(self.forma[0]) // 2
+        self.y = 0
 
     def rotacionar(self):
-        """Rotaciona a forma 90 graus no sentido anti-horário."""
-        self.forma = [list(row) for row in zip(*self.forma)]  # Transforma as linhas em colunas
-        self.forma = [row[::-1] for row in self.forma]  # Inverte cada linha para completar a rotação
+        self.forma = [list(row) for row in zip(*self.forma)]
+        self.forma = [row[::-1] for row in self.forma]
 
 class Tetromino(Forma):
-    """Classe que representa um tetromino específico."""
     def __init__(self):
-        forma_index = random.randint(0, len(formas) - 1)  # Seleciona um índice aleatório para a forma
-        forma = formas[forma_index]  # Obtém a forma correspondente
-        cor = list(Cores.values())[forma_index]  # Associa a cor com a forma
-        super().__init__(forma, cor)  # Chama o construtor da classe base para inicializar
+        forma_index = random.randint(0, len(formas) - 1)
+        forma = formas[forma_index]
+        cor = list(Cores.values())[forma_index]
+        super().__init__(forma, cor)
 
 class Grade:
-    """Classe que representa a grade onde o jogo ocorre."""
     def __init__(self):
-        self.grade = [[0 for _ in range(COLUNAS)] for _ in range(LINHAS)]  # Inicializa uma grade vazia
-        self.pontos = 0  # Inicializa a pontuação do jogo
+        self.grade = [[0 for _ in range(COLUNAS)] for _ in range(LINHAS)]
+        self.pontos = 0
 
     def adicionar_tetromino(self, tetromino):
-        """Adiciona um tetromino à grade após ele ter alcançado o fundo."""
-        for i, linha in enumerate(tetromino.forma):  # Percorre cada linha do tetromino
-            for j, valor in enumerate(linha):  # Percorre cada valor na linha
-                if valor:  # Se o valor for 1 (parte do tetromino)
-                    self.grade[tetromino.y + i][tetromino.x + j] = tetromino.cor  # Coloca o tetromino na posição correspondente
+        for i, linha in enumerate(tetromino.forma):
+            for j, valor in enumerate(linha):
+                if valor:
+                    self.grade[tetromino.y + i][tetromino.x + j] = tetromino.cor
 
     def desenhar(self, tela):
-        """Desenha a grade na tela, mostrando as peças presentes."""
-        for i in range(LINHAS):  # Percorre todas as linhas
-            for j in range(COLUNAS):  # Percorre todas as colunas
-                if self.grade[i][j]:  # Se existe uma peça naquela posição
-                    pygame.draw.rect(tela, self.grade[i][j].get(),  # Desenha a célula com a cor associada
+        for i in range(LINHAS):
+            for j in range(COLUNAS):
+                if self.grade[i][j]:
+                    pygame.draw.rect(tela, self.grade[i][j].get(),
                                      (j * TAMANHO_CELULA, i * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
 
     def verificar_colisao(self, tetromino):
-        """Verifica se o tetromino colide com a grade ou ultrapassa os limites."""
-        for i, linha in enumerate(tetromino.forma):  # Percorre as linhas da forma
-            for j, valor in enumerate(linha):  # Percorre as colunas da forma
-                if valor:  # Se o valor for 1 (parte do tetromino)
+        for i, linha in enumerate(tetromino.forma):
+            for j, valor in enumerate(linha):
+                if valor:
                     if (tetromino.y + i >= LINHAS) or (tetromino.x + j < 0) or (tetromino.x + j >= COLUNAS) or (self.grade[tetromino.y + i][tetromino.x + j]):
-                        return True  # Se colidir com as bordas ou outra peça, retorna True
-        return False  # Se não houver colisão, retorna False
+                        return True
+        return False
 
     def remover_linhas_completas(self):
-        """Remove todas as linhas completas simultaneamente e as reposiciona."""
-        linhas_removidas = 0  # Contador de linhas removidas
-        for i in range(LINHAS - 1, -1, -1):  # Começa da última linha
-            if all(self.grade[i]):  # Se a linha estiver toda preenchida
-                del self.grade[i]  # Remove a linha completa
-                self.grade.insert(0, [0 for _ in range(COLUNAS)])  # Insere uma nova linha vazia no topo
-                linhas_removidas += 1  # Incrementa o contador de linhas removidas
-                self.pontos += 2  # Adiciona 2 pontos para cada linha removida
-        return linhas_removidas  # Retorna o número de linhas removidas
+        linhas_removidas = 0
+        for i in range(LINHAS - 1, -1, -1):
+            if all(self.grade[i]):
+                del self.grade[i]
+                self.grade.insert(0, [0 for _ in range(COLUNAS)])
+                linhas_removidas += 1
+                self.pontos += 2
+        return linhas_removidas
 
 class Jogo:
-    """Classe principal que controla o loop do jogo Tetris."""
     def __init__(self):
-        pygame.init()  # Inicializa a biblioteca Pygame
-        self.tela = pygame.display.set_mode((LARGURA_JOGO, ALTURA_JOGO))  # Cria a tela do jogo
-        pygame.display.set_caption("Tetris")  # Define o título da janela
-        self.clock = pygame.time.Clock()  # Controla o tempo do jogo
-        self.grade = Grade()  # Inicializa a grade
-        self.tetromino = Tetromino()  # Inicializa o primeiro tetromino
-        self.jogando = False  # Jogo começa pausado até clicar no botão play
-        self.pausado = False  # Variável para verificar se o jogo está pausado
-        self.pontos = 0
+        pygame.init()
+        self.tela = pygame.display.set_mode((LARGURA_JOGO, ALTURA_JOGO))
+        pygame.display.set_caption("Tetris")
+        self.clock = pygame.time.Clock()
+        self.grade = Grade()
+        self.tetromino = Tetromino()
+        self.jogando = False
+        self.pausado = False
+        self.ponto = 0
+        self.recorde = Recorde()
 
     def mostrar_tela_inicio(self):
-        """Exibe a tela de início com apenas o botão Play."""
         font = pygame.font.SysFont(None, 55)
         play_button_rect = pygame.Rect(LARGURA_JOGO // 2 - 50, ALTURA_JOGO // 2, 100, 50)
 
@@ -132,27 +145,25 @@ class Jogo:
                     if play_button_rect.collidepoint(evento.pos):
                         self.jogando = True
 
-            self.tela.fill(Cores['F'].get())  # Fundo preto
-            pygame.draw.rect(self.tela, Cores['S'].get(), play_button_rect)  # Botão Play verde
-            play_text = font.render("Play", True, (0, 0, 0))  # Texto "Play" em preto
+            self.tela.fill(Cores['F'].get())
+            pygame.draw.rect(self.tela, Cores['S'].get(), play_button_rect)
+            play_text = font.render("Play", True, (0, 0, 0))
             self.tela.blit(play_text, play_text.get_rect(center=play_button_rect.center))
-            pygame.display.flip()  # Atualiza a tela
-            self.clock.tick(30)  # Limita a taxa de atualização
+            pygame.display.flip()
+            self.clock.tick(30)
 
     def mostrar_tela_pausa(self):
-        """Exibe a tela de pausa quando o jogo está pausado."""
         font = pygame.font.SysFont(None, 55)
-        pause_text = font.render("PAUSADO", True, (255, 0, 0))  # Texto de Pausa em vermelho
+        pause_text = font.render("PAUSADO", True, (255, 0, 0))
 
-        self.tela.fill(Cores['F'].get())  # Fundo preto
+        self.tela.fill(Cores['F'].get())
         self.tela.blit(pause_text, pause_text.get_rect(center=(LARGURA_JOGO // 2, ALTURA_JOGO // 2)))
-        pygame.display.flip()  # Atualiza a tela
+        pygame.display.flip()
 
     def rodar(self):
-        """Loop principal do jogo."""
         while True:
             if not self.jogando:
-                self.mostrar_tela_inicio()  # Exibe a tela de início se o jogo não tiver começado ainda
+                self.mostrar_tela_inicio()
 
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
@@ -160,70 +171,68 @@ class Jogo:
                     exit()
 
                 if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_SPACE and not self.pausado:  # Faz o "drop" do tetromino até o fundo
+                    if evento.key == pygame.K_SPACE and not self.pausado:
                         while not self.grade.verificar_colisao(self.tetromino):
                             self.tetromino.y += 1
                         self.tetromino.y -= 1
-                    if evento.key == pygame.K_p:  # Tecla P para pausar
+                    if evento.key == pygame.K_p:
                         self.pausado = not self.pausado
 
             if self.pausado:
-                self.mostrar_tela_pausa()  # Exibe a tela de pausa se o jogo estiver pausado
+                self.mostrar_tela_pausa()
                 continue
 
             teclas = pygame.key.get_pressed()
-            if teclas[pygame.K_LEFT]:  # Movimento para a esquerda
+            if teclas[pygame.K_LEFT]:
                 self.tetromino.x -= 1
-                if self.grade.verificar_colisao(self.tetromino):  # Se houver colisão, volta para a posição anterior
+                if self.grade.verificar_colisao(self.tetromino):
                     self.tetromino.x += 1
-            if teclas[pygame.K_RIGHT]:  # Movimento para a direita
+            if teclas[pygame.K_RIGHT]:
                 self.tetromino.x += 1
-                if self.grade.verificar_colisao(self.tetromino):  # Se houver colisão, volta para a posição anterior
+                if self.grade.verificar_colisao(self.tetromino):
                     self.tetromino.x -= 1
-            if teclas[pygame.K_DOWN]:  # Movimento para baixo (acelera a queda)
+            if teclas[pygame.K_DOWN]:
                 self.tetromino.y += 1
-                if self.grade.verificar_colisao(self.tetromino):  # Se houver colisão, volta para a posição anterior
+                if self.grade.verificar_colisao(self.tetromino):
                     self.tetromino.y -= 1
-            if teclas[pygame.K_UP]:  # Rotaciona o tetromino
+            if teclas[pygame.K_UP]:
                 self.tetromino.rotacionar()
-                if self.grade.verificar_colisao(self.tetromino):  # Se houver colisão, volta à posição anterior
+                if self.grade.verificar_colisao(self.tetromino):
                     self.tetromino.rotacionar()
 
             # Queda automática do tetromino
             self.tetromino.y += 1
-            if self.grade.verificar_colisao(self.tetromino):  # Se colidir com algo, volta uma posição
+            if self.grade.verificar_colisao(self.tetromino):
                 self.tetromino.y -= 1
-                self.grade.adicionar_tetromino(self.tetromino)  # Adiciona o tetromino à grade
-                linhas_removidas = self.grade.remover_linhas_completas()  # Remove todas as linhas completas simultaneamente
-                if linhas_removidas > 0:
-                    self.pontos += 2 * linhas_removidas  # Adiciona pontos para todas as linhas removidas
-                self.tetromino = Tetromino()  # Cria um novo tetromino
-                if self.grade.verificar_colisao(self.tetromino):  # Verifica se o novo tetromino colide
-                    pygame.time.delay(500)  # Pausa um pouco antes de encerrar o jogo
+                self.grade.adicionar_tetromino(self.tetromino)
+                linhas_removidas = self.grade.remover_linhas_completas()
+                self.ponto += 2 * linhas_removidas
+                self.tetromino = Tetromino()
+                if self.grade.verificar_colisao(self.tetromino):
+                    pygame.time.delay(500)
+                    print(f"Game Over! Pontuação final: {self.ponto}")
+                    self.recorde.atualizar_recorde("Jogador", self.ponto)
                     pygame.quit()
-                    exit()  # Fecha o jogo quando o jogador perde
+                    exit()
 
-            self.tela.fill(Cores['F'].get())  # Limpa a tela
+            self.tela.fill(Cores['F'].get())
+            self.grade.desenhar(self.tela)
 
-            self.grade.desenhar(self.tela)  # Desenha as peças da grade na tela
-
-            # Desenhando o tetromino atual com sua cor
             for i, linha in enumerate(self.tetromino.forma):
                 for j, valor in enumerate(linha):
                     if valor:
                         pygame.draw.rect(self.tela, self.tetromino.cor.get(),
                                          ((self.tetromino.x + j) * TAMANHO_CELULA, (self.tetromino.y + i) * TAMANHO_CELULA, TAMANHO_CELULA, TAMANHO_CELULA))
 
-            # Exibindo a pontuação no canto superior direito
             font = pygame.font.SysFont(None, 36)
-            pontos_texto = font.render(f'Pontos: {self.grade.pontos}', True, (255, 255, 255))
+            pontos_texto = font.render(f'Pontos: {self.ponto}', True, (255, 255, 255))
             self.tela.blit(pontos_texto, (LARGURA_JOGO - 150, 20))
 
-            pygame.display.flip()  # Atualiza a tela para mostrar as mudanças
-            self.clock.tick(5)  # Controla a velocidade do jogo
+            pygame.display.flip()
+            self.clock.tick(5)
 
 # Inicializa e executa o jogo
 if __name__ == "__main__":
     jogo = Jogo()
-    jogo.rodar()  # Inicia o loop do jogo
-    pygame.quit()  # Finaliza o Pygame ao sair
+    jogo.rodar()
+    pygame.quit()
