@@ -116,6 +116,7 @@ class Jogo:
         self.tetromino = Tetromino()  # Inicializa o primeiro tetromino
         self.jogando = False  # Jogo começa pausado até clicar no botão play
         self.pausado = False  # Variável para verificar se o jogo está pausado
+        self.pontos = 0
 
     def mostrar_tela_inicio(self):
         """Exibe a tela de início com apenas o botão Play."""
